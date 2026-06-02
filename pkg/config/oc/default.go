@@ -108,6 +108,12 @@ func setDefaultNeighborConfigValuesWithViper(v *viper.Viper, n *Neighbor, g *Glo
 		n.ErrorHandling.Config.TreatAsWithdraw = true
 	}
 
+	// RFC 8654 Section 5: "Implementers SHOULD enable this capability
+	// by default." The knob carries the inverted polarity
+	// (DisableExtendedMessage), so the bool zero value (false)
+	// matches the recommended default - advertise. Operators that
+	// want to opt a neighbour out set the flag explicitly true.
+
 	if !v.IsSet("neighbor.timers.config.connect-retry") && n.Timers.Config.ConnectRetry == 0 {
 		n.Timers.Config.ConnectRetry = float64(DEFAULT_CONNECT_RETRY)
 	}

@@ -1909,6 +1909,15 @@ type PeerGroupConfig struct {
 	// original -> gobgp:send-software-version
 	// gobgp:send-software-version's original type is boolean.
 	SendSoftwareVersion bool `mapstructure:"send-software-version" json:"send-software-version,omitempty"`
+	// original -> gobgp:disable-extended-message
+	// gobgp:disable-extended-message's original type is boolean.
+	// Advertise the BGP Extended Message capability (RFC 8654,
+	// Capability Code 6) in OPEN. When both peers advertise it,
+	// UPDATE, NOTIFICATION and ROUTE-REFRESH may grow up to 65535
+	// octets; OPEN and KEEPALIVE keep the 4096-octet cap (RFC 8654
+	// Section 6). Default true per RFC 8654 Section 5 ("Implementers
+	// SHOULD enable this capability by default").
+	DisableExtendedMessage bool `mapstructure:"disable-extended-message" json:"disable-extended-message,omitempty"`
 }
 
 func (lhs *PeerGroupConfig) Equal(rhs *PeerGroupConfig) bool {
@@ -1943,6 +1952,9 @@ func (lhs *PeerGroupConfig) Equal(rhs *PeerGroupConfig) bool {
 		return false
 	}
 	if lhs.SendSoftwareVersion != rhs.SendSoftwareVersion {
+		return false
+	}
+	if lhs.DisableExtendedMessage != rhs.DisableExtendedMessage {
 		return false
 	}
 	return true
@@ -3458,6 +3470,15 @@ type NeighborConfig struct {
 	// original -> gobgp:send-software-version
 	// gobgp:send-software-version's original type is boolean.
 	SendSoftwareVersion bool `mapstructure:"send-software-version" json:"send-software-version,omitempty"`
+	// original -> gobgp:disable-extended-message
+	// gobgp:disable-extended-message's original type is boolean.
+	// Advertise the BGP Extended Message capability (RFC 8654,
+	// Capability Code 6) in OPEN. When both peers advertise it,
+	// UPDATE, NOTIFICATION and ROUTE-REFRESH may grow up to 65535
+	// octets; OPEN and KEEPALIVE keep the 4096-octet cap (RFC 8654
+	// Section 6). Default true per RFC 8654 Section 5 ("Implementers
+	// SHOULD enable this capability by default").
+	DisableExtendedMessage bool `mapstructure:"disable-extended-message" json:"disable-extended-message,omitempty"`
 }
 
 func (lhs *NeighborConfig) Equal(rhs *NeighborConfig) bool {
@@ -3504,6 +3525,9 @@ func (lhs *NeighborConfig) Equal(rhs *NeighborConfig) bool {
 		return false
 	}
 	if lhs.SendSoftwareVersion != rhs.SendSoftwareVersion {
+		return false
+	}
+	if lhs.DisableExtendedMessage != rhs.DisableExtendedMessage {
 		return false
 	}
 	return true
