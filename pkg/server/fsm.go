@@ -410,6 +410,12 @@ type fsm struct {
 	capMap   map[bgp.BGPCapabilityCode][]bgp.ParameterCapabilityInterface
 	recvOpen *bgp.BGPMessage
 
+	// extendedMessage is the RFC 8654 negotiation result: true iff
+	// both sides advertised the Extended Message Capability in OPEN.
+	// Read on the incoming-message hot path (read loop length gate),
+	// so atomic to keep the read lock-free without copying capMap.
+	extendedMessage atomic.Bool
+
 	// safe for concurrent access
 	state                    fsmState
 	familyMap                atomic.Value // map[bgp.Family]bgp.BGPAddPathMode
@@ -657,6 +663,15 @@ func (fsm *fsm) stateChange(nextState bgp.FSMState, reason *fsmStateReason) {
 
 		fsm.capMap = capmap
 		fsm.familyMap.Store(rfmap)
+
+		// RFC 8654 Section 4: a speaker MAY send a BGP Extended
+		// Message only if the peer advertised the BGP Extended
+		// Message Capability. Both directions are independent, so
+		// the negotiated flag is the AND of "we advertised" (the
+		// local config knob has NOT disabled it) and a non-empty
+		// entry in the peer's capability map.
+		_, peerExt := fsm.capMap[bgp.BGP_CAP_EXTENDED_MESSAGE]
+		fsm.extendedMessage.Store(!conf.Config.DisableExtendedMessage && peerExt)
 
 		// calculate HoldTime
 		// RFC 4271 P.13
@@ -1113,6 +1128,17 @@ func capabilitiesFromConfig(pConf *oc.Neighbor) []bgp.ParameterCapabilityInterfa
 		caps = append(caps, bgp.NewCapSoftwareVersion(softwareVersion))
 	}
 
+	// RFC 8654 Section 3: advertise the Extended Message Capability
+	// in OPEN unless the operator disabled it on this neighbour. The
+	// capability TLV is empty (Capability Code 6, Length 0); per
+	// Section 4 either side may only emit a message larger than 4096
+	// octets after both peers have advertised, so unilaterally
+	// announcing the capability is safe - the negotiation result on
+	// the FSM still gates the actual length cap flip.
+	if !pConf.Config.DisableExtendedMessage {
+		caps = append(caps, bgp.NewCapExtendedMessage())
+	}
+
 	for _, af := range pConf.AfiSafis {
 		caps = append(caps, bgp.NewCapMultiProtocol(af.State.Family))
 	}
@@ -1279,9 +1305,24 @@ func (h *fsmHandler) recvMessageWithError(conn net.Conn, stateReasonCh chan<- fs
 
 	hd := &bgp.BGPHeader{}
 	err = hd.DecodeFromBytes(headerBuf)
-	// TODO: RFC 8654
-	if err == nil && hd.Len > bgp.BGP_MAX_MESSAGE_LENGTH {
-		err = bgp.NewMessageError(bgp.BGP_ERROR_MESSAGE_HEADER_ERROR, bgp.BGP_ERROR_SUB_BAD_MESSAGE_LENGTH, nil, "too large BGP message length")
+	// RFC 8654 Section 4 + Section 6: once both peers have advertised
+	// the Extended Message Capability the per-message-type cap rises
+	// from 4096 to 65535 octets, but OPEN and KEEPALIVE keep the
+	// legacy ceiling so the initial handshake stays interoperable
+	// with implementations that have not yet negotiated the
+	// capability (the handshake completes before the negotiation
+	// result is known).
+	if err == nil {
+		maxLen := uint16(bgp.BGP_MAX_MESSAGE_LENGTH)
+		if h.fsm.extendedMessage.Load() {
+			switch hd.Type {
+			case bgp.BGP_MSG_UPDATE, bgp.BGP_MSG_NOTIFICATION, bgp.BGP_MSG_ROUTE_REFRESH:
+				maxLen = uint16(bgp.BGP_MAX_EXTENDED_MESSAGE_LENGTH)
+			}
+		}
+		if hd.Len > maxLen {
+			err = bgp.NewMessageError(bgp.BGP_ERROR_MESSAGE_HEADER_ERROR, bgp.BGP_ERROR_SUB_BAD_MESSAGE_LENGTH, nil, "too large BGP message length")
+		}
 	}
 	if err != nil {
 		h.fsm.bgpMessageStateUpdate(0, true)
@@ -1310,8 +1351,9 @@ func (h *fsmHandler) recvMessageWithError(conn net.Conn, stateReasonCh chan<- fs
 	useRevisedError := h.fsm.isTreatAsWithdraw
 
 	m, err := bgp.ParseBGPBody(hd, bodyBuf, &bgp.MarshallingOption{
-		AddPath:    h.fsm.familyMap.Load().(map[bgp.Family]bgp.BGPAddPathMode),
-		Use2ByteAS: h.fsm.twoByteAsTrans, // true if peer does NOT support 4-byte AS
+		AddPath:         h.fsm.familyMap.Load().(map[bgp.Family]bgp.BGPAddPathMode),
+		Use2ByteAS:      h.fsm.twoByteAsTrans, // true if peer does NOT support 4-byte AS
+		ExtendedMessage: h.fsm.extendedMessage.Load(),
 	})
 	if err != nil {
 		if m == nil {
@@ -1726,7 +1768,10 @@ func (h *fsmHandler) sendMessageloop(ctx context.Context, conn net.Conn, stateRe
 			table.UpdatePathAggregator2ByteAs(m.Body.(*bgp.BGPUpdate))
 		}
 
-		b, err := m.Serialize(&bgp.MarshallingOption{AddPath: fsm.familyMap.Load().(map[bgp.Family]bgp.BGPAddPathMode)})
+		b, err := m.Serialize(&bgp.MarshallingOption{
+			AddPath:         fsm.familyMap.Load().(map[bgp.Family]bgp.BGPAddPathMode),
+			ExtendedMessage: fsm.extendedMessage.Load(),
+		})
 		if err != nil {
 			fsm.logger.Warn("failed to serialize",
 				slog.String("State", fsm.state.String()),
@@ -1800,7 +1845,10 @@ func (h *fsmHandler) sendMessageloop(ctx context.Context, conn net.Conn, stateRe
 					break
 				}
 
-				options := &bgp.MarshallingOption{AddPath: fsm.familyMap.Load().(map[bgp.Family]bgp.BGPAddPathMode)}
+				options := &bgp.MarshallingOption{
+					AddPath:         fsm.familyMap.Load().(map[bgp.Family]bgp.BGPAddPathMode),
+					ExtendedMessage: fsm.extendedMessage.Load(),
+				}
 				for _, msg := range table.CreateUpdateMsgFromPaths(paths, options) {
 					if err := send(msg); err != nil {
 						return nil
