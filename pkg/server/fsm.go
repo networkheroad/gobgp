@@ -410,6 +410,12 @@ type fsm struct {
 	capMap   map[bgp.BGPCapabilityCode][]bgp.ParameterCapabilityInterface
 	recvOpen *bgp.BGPMessage
 
+	// extendedMessage is the RFC 8654 negotiation result: true iff
+	// both sides advertised the Extended Message Capability in OPEN.
+	// Read on the incoming-message hot path (read loop length gate),
+	// so atomic to keep the read lock-free without copying capMap.
+	extendedMessage atomic.Bool
+
 	// safe for concurrent access
 	state                    fsmState
 	familyMap                atomic.Value // map[bgp.Family]bgp.BGPAddPathMode
@@ -657,6 +663,14 @@ func (fsm *fsm) stateChange(nextState bgp.FSMState, reason *fsmStateReason) {
 
 		fsm.capMap = capmap
 		fsm.familyMap.Store(rfmap)
+
+		// RFC 8654 Section 4: a speaker MAY send a BGP Extended
+		// Message only if the peer advertised the BGP Extended
+		// Message Capability. Both directions are independent, so
+		// the negotiated flag is the AND of the local config knob
+		// and a non-empty entry in the peer's capability map.
+		_, peerExt := fsm.capMap[bgp.BGP_CAP_EXTENDED_MESSAGE]
+		fsm.extendedMessage.Store(conf.Config.SendExtendedMessage && peerExt)
 
 		// calculate HoldTime
 		// RFC 4271 P.13
