@@ -108,6 +108,15 @@ func setDefaultNeighborConfigValuesWithViper(v *viper.Viper, n *Neighbor, g *Glo
 		n.ErrorHandling.Config.TreatAsWithdraw = true
 	}
 
+	// RFC 8654 Section 5: "Implementers SHOULD enable this capability
+	// by default." We honour that — advertising the capability is
+	// always safe because the spec requires bilateral negotiation
+	// before either side may send a message larger than 4096 octets,
+	// so a peer that does not advertise stays under the legacy cap.
+	if !v.IsSet("neighbor.config.send-extended-message") && !n.Config.SendExtendedMessage {
+		n.Config.SendExtendedMessage = true
+	}
+
 	if !v.IsSet("neighbor.timers.config.connect-retry") && n.Timers.Config.ConnectRetry == 0 {
 		n.Timers.Config.ConnectRetry = float64(DEFAULT_CONNECT_RETRY)
 	}
