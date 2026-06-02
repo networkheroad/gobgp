@@ -1113,6 +1113,16 @@ func capabilitiesFromConfig(pConf *oc.Neighbor) []bgp.ParameterCapabilityInterfa
 		caps = append(caps, bgp.NewCapSoftwareVersion(softwareVersion))
 	}
 
+	// RFC 8654 Section 3: advertise the Extended Message Capability
+	// in OPEN when configured. The capability TLV is empty
+	// (Capability Code 6, Length 0); per Section 4 either side may
+	// only emit a message larger than 4096 octets after both peers
+	// have advertised, so unilaterally announcing the capability is
+	// safe.
+	if pConf.Config.SendExtendedMessage {
+		caps = append(caps, bgp.NewCapExtendedMessage())
+	}
+
 	for _, af := range pConf.AfiSafis {
 		caps = append(caps, bgp.NewCapMultiProtocol(af.State.Family))
 	}
