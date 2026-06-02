@@ -1303,9 +1303,24 @@ func (h *fsmHandler) recvMessageWithError(conn net.Conn, stateReasonCh chan<- fs
 
 	hd := &bgp.BGPHeader{}
 	err = hd.DecodeFromBytes(headerBuf)
-	// TODO: RFC 8654
-	if err == nil && hd.Len > bgp.BGP_MAX_MESSAGE_LENGTH {
-		err = bgp.NewMessageError(bgp.BGP_ERROR_MESSAGE_HEADER_ERROR, bgp.BGP_ERROR_SUB_BAD_MESSAGE_LENGTH, nil, "too large BGP message length")
+	// RFC 8654 Section 4 + Section 6: once both peers have advertised
+	// the Extended Message Capability the per-message-type cap rises
+	// from 4096 to 65535 octets, but OPEN and KEEPALIVE keep the
+	// legacy ceiling so the initial handshake stays interoperable
+	// with implementations that have not yet negotiated the
+	// capability (the handshake completes before the negotiation
+	// result is known).
+	if err == nil {
+		maxLen := uint16(bgp.BGP_MAX_MESSAGE_LENGTH)
+		if h.fsm.extendedMessage.Load() {
+			switch hd.Type {
+			case bgp.BGP_MSG_UPDATE, bgp.BGP_MSG_NOTIFICATION, bgp.BGP_MSG_ROUTE_REFRESH:
+				maxLen = uint16(bgp.BGP_MAX_EXTENDED_MESSAGE_LENGTH)
+			}
+		}
+		if hd.Len > maxLen {
+			err = bgp.NewMessageError(bgp.BGP_ERROR_MESSAGE_HEADER_ERROR, bgp.BGP_ERROR_SUB_BAD_MESSAGE_LENGTH, nil, "too large BGP message length")
+		}
 	}
 	if err != nil {
 		h.fsm.bgpMessageStateUpdate(0, true)
