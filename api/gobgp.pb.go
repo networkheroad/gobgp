@@ -7397,16 +7397,16 @@ type PeerConf struct {
 	AdminDown            bool                   `protobuf:"varint,15,opt,name=admin_down,json=adminDown,proto3" json:"admin_down,omitempty"`
 	SendSoftwareVersion  bool                   `protobuf:"varint,16,opt,name=send_software_version,json=sendSoftwareVersion,proto3" json:"send_software_version,omitempty"`
 	AllowAspathLoopLocal bool                   `protobuf:"varint,17,opt,name=allow_aspath_loop_local,json=allowAspathLoopLocal,proto3" json:"allow_aspath_loop_local,omitempty"`
-	// Advertise the BGP Extended Message capability (RFC 8654,
-	// Capability Code 6) in OPEN. Both peers MUST advertise it for
-	// either side to send a UPDATE/NOTIFICATION/ROUTE-REFRESH larger
-	// than 4096 octets on this session. Defaults true on the
-	// configuration side per RFC 8654 Section 5; the protobuf zero
-	// value is false, so callers that build PeerConf directly should
-	// set this field explicitly when they want the legacy behaviour.
-	SendExtendedMessage bool `protobuf:"varint,18,opt,name=send_extended_message,json=sendExtendedMessage,proto3" json:"send_extended_message,omitempty"`
-	unknownFields       protoimpl.UnknownFields
-	sizeCache           protoimpl.SizeCache
+	// Stop advertising the BGP Extended Message capability (RFC 8654,
+	// Capability Code 6) on this neighbour. The polarity is inverted
+	// (default false = advertise) so the protobuf zero value matches
+	// RFC 8654 Section 5: "Implementers SHOULD enable this capability
+	// by default." Set to true on a neighbour that should not see the
+	// capability in our OPEN (interop with implementations that
+	// mis-handle it, or for size-bounded environments).
+	DisableExtendedMessage bool `protobuf:"varint,18,opt,name=disable_extended_message,json=disableExtendedMessage,proto3" json:"disable_extended_message,omitempty"`
+	unknownFields          protoimpl.UnknownFields
+	sizeCache              protoimpl.SizeCache
 }
 
 func (x *PeerConf) Reset() {
@@ -7558,9 +7558,9 @@ func (x *PeerConf) GetAllowAspathLoopLocal() bool {
 	return false
 }
 
-func (x *PeerConf) GetSendExtendedMessage() bool {
+func (x *PeerConf) GetDisableExtendedMessage() bool {
 	if x != nil {
-		return x.SendExtendedMessage
+		return x.DisableExtendedMessage
 	}
 	return false
 }
@@ -7580,11 +7580,11 @@ type PeerGroupConf struct {
 	AllowOwnAsn          uint32                 `protobuf:"varint,11,opt,name=allow_own_asn,json=allowOwnAsn,proto3" json:"allow_own_asn,omitempty"`
 	ReplacePeerAsn       bool                   `protobuf:"varint,12,opt,name=replace_peer_asn,json=replacePeerAsn,proto3" json:"replace_peer_asn,omitempty"`
 	AllowAspathLoopLocal bool                   `protobuf:"varint,13,opt,name=allow_aspath_loop_local,json=allowAspathLoopLocal,proto3" json:"allow_aspath_loop_local,omitempty"`
-	// See PeerConf.send_extended_message — same semantics, applied to
-	// every neighbour that inherits from this peer group.
-	SendExtendedMessage bool `protobuf:"varint,14,opt,name=send_extended_message,json=sendExtendedMessage,proto3" json:"send_extended_message,omitempty"`
-	unknownFields       protoimpl.UnknownFields
-	sizeCache           protoimpl.SizeCache
+	// See PeerConf.disable_extended_message - same semantics, applied
+	// to every neighbour that inherits from this peer group.
+	DisableExtendedMessage bool `protobuf:"varint,14,opt,name=disable_extended_message,json=disableExtendedMessage,proto3" json:"disable_extended_message,omitempty"`
+	unknownFields          protoimpl.UnknownFields
+	sizeCache              protoimpl.SizeCache
 }
 
 func (x *PeerGroupConf) Reset() {
@@ -7708,9 +7708,9 @@ func (x *PeerGroupConf) GetAllowAspathLoopLocal() bool {
 	return false
 }
 
-func (x *PeerGroupConf) GetSendExtendedMessage() bool {
+func (x *PeerGroupConf) GetDisableExtendedMessage() bool {
 	if x != nil {
-		return x.SendExtendedMessage
+		return x.DisableExtendedMessage
 	}
 	return false
 }
@@ -13627,7 +13627,7 @@ const file_api_gobgp_proto_rawDesc = "" +
 	"\vPrefixLimit\x12#\n" +
 	"\x06family\x18\x01 \x01(\v2\v.api.FamilyR\x06family\x12!\n" +
 	"\fmax_prefixes\x18\x02 \x01(\rR\vmaxPrefixes\x124\n" +
-	"\x16shutdown_threshold_pct\x18\x03 \x01(\rR\x14shutdownThresholdPct\"\xd3\x05\n" +
+	"\x16shutdown_threshold_pct\x18\x03 \x01(\rR\x14shutdownThresholdPct\"\xd9\x05\n" +
 	"\bPeerConf\x12#\n" +
 	"\rauth_password\x18\x01 \x01(\tR\fauthPassword\x12 \n" +
 	"\vdescription\x18\x02 \x01(\tR\vdescription\x12\x1b\n" +
@@ -13648,8 +13648,8 @@ const file_api_gobgp_proto_rawDesc = "" +
 	"\n" +
 	"admin_down\x18\x0f \x01(\bR\tadminDown\x122\n" +
 	"\x15send_software_version\x18\x10 \x01(\bR\x13sendSoftwareVersion\x125\n" +
-	"\x17allow_aspath_loop_local\x18\x11 \x01(\bR\x14allowAspathLoopLocal\x122\n" +
-	"\x15send_extended_message\x18\x12 \x01(\bR\x13sendExtendedMessage\"\xd6\x04\n" +
+	"\x17allow_aspath_loop_local\x18\x11 \x01(\bR\x14allowAspathLoopLocal\x128\n" +
+	"\x18disable_extended_message\x18\x12 \x01(\bR\x16disableExtendedMessage\"\xdc\x04\n" +
 	"\rPeerGroupConf\x12#\n" +
 	"\rauth_password\x18\x01 \x01(\tR\fauthPassword\x12 \n" +
 	"\vdescription\x18\x02 \x01(\tR\vdescription\x12\x1b\n" +
@@ -13664,8 +13664,8 @@ const file_api_gobgp_proto_rawDesc = "" +
 	" \x01(\bR\x13sendSoftwareVersion\x12\"\n" +
 	"\rallow_own_asn\x18\v \x01(\rR\vallowOwnAsn\x12(\n" +
 	"\x10replace_peer_asn\x18\f \x01(\bR\x0ereplacePeerAsn\x125\n" +
-	"\x17allow_aspath_loop_local\x18\r \x01(\bR\x14allowAspathLoopLocal\x122\n" +
-	"\x15send_extended_message\x18\x0e \x01(\bR\x13sendExtendedMessage\"\xb2\x03\n" +
+	"\x17allow_aspath_loop_local\x18\r \x01(\bR\x14allowAspathLoopLocal\x128\n" +
+	"\x18disable_extended_message\x18\x0e \x01(\bR\x16disableExtendedMessage\"\xb2\x03\n" +
 	"\x0ePeerGroupState\x12#\n" +
 	"\rauth_password\x18\x01 \x01(\tR\fauthPassword\x12 \n" +
 	"\vdescription\x18\x02 \x01(\tR\vdescription\x12\x1b\n" +

@@ -667,10 +667,11 @@ func (fsm *fsm) stateChange(nextState bgp.FSMState, reason *fsmStateReason) {
 		// RFC 8654 Section 4: a speaker MAY send a BGP Extended
 		// Message only if the peer advertised the BGP Extended
 		// Message Capability. Both directions are independent, so
-		// the negotiated flag is the AND of the local config knob
-		// and a non-empty entry in the peer's capability map.
+		// the negotiated flag is the AND of "we advertised" (the
+		// local config knob has NOT disabled it) and a non-empty
+		// entry in the peer's capability map.
 		_, peerExt := fsm.capMap[bgp.BGP_CAP_EXTENDED_MESSAGE]
-		fsm.extendedMessage.Store(conf.Config.SendExtendedMessage && peerExt)
+		fsm.extendedMessage.Store(!conf.Config.DisableExtendedMessage && peerExt)
 
 		// calculate HoldTime
 		// RFC 4271 P.13
@@ -1128,12 +1129,13 @@ func capabilitiesFromConfig(pConf *oc.Neighbor) []bgp.ParameterCapabilityInterfa
 	}
 
 	// RFC 8654 Section 3: advertise the Extended Message Capability
-	// in OPEN when configured. The capability TLV is empty
-	// (Capability Code 6, Length 0); per Section 4 either side may
-	// only emit a message larger than 4096 octets after both peers
-	// have advertised, so unilaterally announcing the capability is
-	// safe.
-	if pConf.Config.SendExtendedMessage {
+	// in OPEN unless the operator disabled it on this neighbour. The
+	// capability TLV is empty (Capability Code 6, Length 0); per
+	// Section 4 either side may only emit a message larger than 4096
+	// octets after both peers have advertised, so unilaterally
+	// announcing the capability is safe - the negotiation result on
+	// the FSM still gates the actual length cap flip.
+	if !pConf.Config.DisableExtendedMessage {
 		caps = append(caps, bgp.NewCapExtendedMessage())
 	}
 
