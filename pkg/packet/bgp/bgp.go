@@ -37,8 +37,30 @@ type MarshallingOption struct {
 	AddPath    map[Family]BGPAddPathMode
 	MRT        bool
 	Use2ByteAS bool // true if peer does NOT support 4-byte AS capability
+	// ExtendedMessage signals that the BGP Extended Message Capability
+	// (RFC 8654) is negotiated on the session this serialisation is
+	// for. When true the per-message-type length cap rises from 4096
+	// to 65535 octets for UPDATE, NOTIFICATION and ROUTE-REFRESH;
+	// OPEN and KEEPALIVE keep the 4096-octet cap per RFC 8654 Section 6.
+	ExtendedMessage bool
 
 	attributes map[BGPAttrType]bool
+}
+
+// IsExtendedMessageSerialization reports whether any element of
+// options carries the RFC 8654 ExtendedMessage flag set. Used by
+// BGPMessage.Serialize to lift the length cap on the messages where
+// the RFC allows it.
+func IsExtendedMessageSerialization(options []*MarshallingOption) bool {
+	for _, opt := range options {
+		if opt == nil {
+			continue
+		}
+		if opt.ExtendedMessage {
+			return true
+		}
+	}
+	return false
 }
 
 func IsMRTSerialization(options []*MarshallingOption) bool {
@@ -16230,7 +16252,21 @@ func (msg *BGPMessage) Serialize(options ...*MarshallingOption) ([]byte, error) 
 		return nil, err
 	}
 	if msg.Header.Len == 0 {
-		if BGP_HEADER_LENGTH+len(b) > BGP_MAX_MESSAGE_LENGTH {
+		// RFC 8654 Section 4 + Section 6: with the BGP Extended
+		// Message Capability negotiated the cap rises to 65535 for
+		// UPDATE, NOTIFICATION and ROUTE-REFRESH; OPEN and KEEPALIVE
+		// stay at 4096. The caller sets MarshallingOption.ExtendedMessage
+		// only when the session negotiated the capability, so an
+		// uncapped serialise on a peer that did not advertise the
+		// capability still hits the 4096-octet ceiling.
+		maxLen := BGP_MAX_MESSAGE_LENGTH
+		if IsExtendedMessageSerialization(options) {
+			switch msg.Header.Type {
+			case BGP_MSG_UPDATE, BGP_MSG_NOTIFICATION, BGP_MSG_ROUTE_REFRESH:
+				maxLen = BGP_MAX_EXTENDED_MESSAGE_LENGTH
+			}
+		}
+		if BGP_HEADER_LENGTH+len(b) > maxLen {
 			return nil, NewMessageError(0, 0, nil, fmt.Sprintf("too long message length %d", BGP_HEADER_LENGTH+len(b)))
 		}
 		msg.Header.Len = BGP_HEADER_LENGTH + uint16(len(b))
