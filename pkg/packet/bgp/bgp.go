@@ -373,6 +373,7 @@ const (
 	BGP_CAP_ROUTE_REFRESH               BGPCapabilityCode = 2
 	BGP_CAP_CARRYING_LABEL_INFO         BGPCapabilityCode = 4
 	BGP_CAP_EXTENDED_NEXTHOP            BGPCapabilityCode = 5
+	BGP_CAP_EXTENDED_MESSAGE            BGPCapabilityCode = 6
 	BGP_CAP_GRACEFUL_RESTART            BGPCapabilityCode = 64
 	BGP_CAP_FOUR_OCTET_AS_NUMBER        BGPCapabilityCode = 65
 	BGP_CAP_ADD_PATH                    BGPCapabilityCode = 69
@@ -389,6 +390,7 @@ var CapNameMap = map[BGPCapabilityCode]string{
 	BGP_CAP_CARRYING_LABEL_INFO:         "carrying-label-info",
 	BGP_CAP_GRACEFUL_RESTART:            "graceful-restart",
 	BGP_CAP_EXTENDED_NEXTHOP:            "extended-nexthop",
+	BGP_CAP_EXTENDED_MESSAGE:            "extended-message",
 	BGP_CAP_FOUR_OCTET_AS_NUMBER:        "4-octet-as",
 	BGP_CAP_ADD_PATH:                    "add-path",
 	BGP_CAP_ENHANCED_ROUTE_REFRESH:      "enhanced-route-refresh",
@@ -547,6 +549,24 @@ func NewCapRouteRefresh() *CapRouteRefresh {
 	return &CapRouteRefresh{
 		DefaultParameterCapability{
 			CapCode: BGP_CAP_ROUTE_REFRESH,
+		},
+	}
+}
+
+// CapExtendedMessage advertises the BGP Extended Message capability
+// from RFC 8654. The capability TLV is empty (Capability Code 6,
+// Capability Length 0). When both peers advertise it the maximum BGP
+// message size for UPDATE, NOTIFICATION and ROUTE-REFRESH grows from
+// 4096 to 65535 octets; OPEN and KEEPALIVE remain capped at 4096
+// (RFC 8654 Section 6).
+type CapExtendedMessage struct {
+	DefaultParameterCapability
+}
+
+func NewCapExtendedMessage() *CapExtendedMessage {
+	return &CapExtendedMessage{
+		DefaultParameterCapability{
+			CapCode: BGP_CAP_EXTENDED_MESSAGE,
 		},
 	}
 }
@@ -1175,6 +1195,8 @@ func DecodeCapability(data []byte) (ParameterCapabilityInterface, error) {
 		c = &CapCarryingLabelInfo{}
 	case BGP_CAP_EXTENDED_NEXTHOP:
 		c = &CapExtendedNexthop{}
+	case BGP_CAP_EXTENDED_MESSAGE:
+		c = &CapExtendedMessage{}
 	case BGP_CAP_GRACEFUL_RESTART:
 		c = &CapGracefulRestart{}
 	case BGP_CAP_FOUR_OCTET_AS_NUMBER:
@@ -16110,6 +16132,13 @@ type BGPBody interface {
 const (
 	BGP_HEADER_LENGTH      = 19
 	BGP_MAX_MESSAGE_LENGTH = 4096
+	// BGP_MAX_EXTENDED_MESSAGE_LENGTH is the largest BGP message a
+	// peer may exchange once both sides have advertised the RFC 8654
+	// Extended Message capability. RFC 8654 Section 2 fixes the cap
+	// at 65535 octets; Section 6 limits the relaxation to UPDATE,
+	// NOTIFICATION and ROUTE-REFRESH (OPEN and KEEPALIVE keep the
+	// 4096-octet ceiling).
+	BGP_MAX_EXTENDED_MESSAGE_LENGTH = 65535
 )
 
 type BGPHeader struct {
