@@ -1349,8 +1349,9 @@ func (h *fsmHandler) recvMessageWithError(conn net.Conn, stateReasonCh chan<- fs
 	useRevisedError := h.fsm.isTreatAsWithdraw
 
 	m, err := bgp.ParseBGPBody(hd, bodyBuf, &bgp.MarshallingOption{
-		AddPath:    h.fsm.familyMap.Load().(map[bgp.Family]bgp.BGPAddPathMode),
-		Use2ByteAS: h.fsm.twoByteAsTrans, // true if peer does NOT support 4-byte AS
+		AddPath:         h.fsm.familyMap.Load().(map[bgp.Family]bgp.BGPAddPathMode),
+		Use2ByteAS:      h.fsm.twoByteAsTrans, // true if peer does NOT support 4-byte AS
+		ExtendedMessage: h.fsm.extendedMessage.Load(),
 	})
 	if err != nil {
 		if m == nil {
@@ -1765,7 +1766,10 @@ func (h *fsmHandler) sendMessageloop(ctx context.Context, conn net.Conn, stateRe
 			table.UpdatePathAggregator2ByteAs(m.Body.(*bgp.BGPUpdate))
 		}
 
-		b, err := m.Serialize(&bgp.MarshallingOption{AddPath: fsm.familyMap.Load().(map[bgp.Family]bgp.BGPAddPathMode)})
+		b, err := m.Serialize(&bgp.MarshallingOption{
+			AddPath:         fsm.familyMap.Load().(map[bgp.Family]bgp.BGPAddPathMode),
+			ExtendedMessage: fsm.extendedMessage.Load(),
+		})
 		if err != nil {
 			fsm.logger.Warn("failed to serialize",
 				slog.String("State", fsm.state.String()),
@@ -1839,7 +1843,10 @@ func (h *fsmHandler) sendMessageloop(ctx context.Context, conn net.Conn, stateRe
 					break
 				}
 
-				options := &bgp.MarshallingOption{AddPath: fsm.familyMap.Load().(map[bgp.Family]bgp.BGPAddPathMode)}
+				options := &bgp.MarshallingOption{
+					AddPath:         fsm.familyMap.Load().(map[bgp.Family]bgp.BGPAddPathMode),
+					ExtendedMessage: fsm.extendedMessage.Load(),
+				}
 				for _, msg := range table.CreateUpdateMsgFromPaths(paths, options) {
 					if err := send(msg); err != nil {
 						return nil
