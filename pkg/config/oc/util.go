@@ -548,6 +548,7 @@ func NewPeerFromConfigStruct(pconf *Neighbor) *api.Peer {
 			ReplacePeerAsn:       pconf.AsPathOptions.Config.ReplacePeerAs,
 			AdminDown:            pconf.Config.AdminDown,
 			SendSoftwareVersion:  pconf.Config.SendSoftwareVersion,
+			SendExtendedMessage:  pconf.Config.SendExtendedMessage,
 		},
 		State: &api.PeerState{
 			SessionState: sessionState,
@@ -683,6 +684,7 @@ func NewPeerGroupFromConfigStruct(pconf *PeerGroup) *api.PeerGroup {
 			Description:          pconf.Config.Description,
 			PeerGroupName:        pconf.Config.PeerGroupName,
 			SendSoftwareVersion:  pconf.Config.SendSoftwareVersion,
+			SendExtendedMessage:  pconf.Config.SendExtendedMessage,
 			AllowOwnAsn:          uint32(pconf.AsPathOptions.Config.AllowOwnAs),
 			ReplacePeerAsn:       pconf.AsPathOptions.Config.ReplacePeerAs,
 			AllowAspathLoopLocal: pconf.AsPathOptions.Config.AllowAsPathLoopLocal,

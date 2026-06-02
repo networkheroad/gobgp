@@ -3648,6 +3648,12 @@ func TestUpdatePeer(t *testing.T) {
 	err = s.AddPeer(context.Background(), &api.AddPeerRequest{Peer: p})
 	assert.NoError(t, err)
 
+	// SetDefaultNeighborConfigValues turns SendExtendedMessage on
+	// when the caller did not set it (RFC 8654 Section 5 default).
+	// Mirror that on the in-test PeerConf so later equality checks
+	// against the server view do not trip on the default.
+	p.Conf.SendExtendedMessage = true
+
 	// update timer config
 	p.Timers.Config.HoldTime = 33
 	resp, err := s.UpdatePeer(context.Background(), &api.UpdatePeerRequest{Peer: p})

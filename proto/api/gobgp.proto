@@ -767,6 +767,14 @@ message PeerConf {
   bool admin_down = 15;
   bool send_software_version = 16;
   bool allow_aspath_loop_local = 17;
+  // Advertise the BGP Extended Message capability (RFC 8654,
+  // Capability Code 6) in OPEN. Both peers MUST advertise it for
+  // either side to send a UPDATE/NOTIFICATION/ROUTE-REFRESH larger
+  // than 4096 octets on this session. Defaults true on the
+  // configuration side per RFC 8654 Section 5; the protobuf zero
+  // value is false, so callers that build PeerConf directly should
+  // set this field explicitly when they want the legacy behaviour.
+  bool send_extended_message = 18;
 }
 
 message PeerGroupConf {
@@ -783,6 +791,9 @@ message PeerGroupConf {
   uint32 allow_own_asn = 11;
   bool replace_peer_asn = 12;
   bool allow_aspath_loop_local = 13;
+  // See PeerConf.send_extended_message — same semantics, applied to
+  // every neighbour that inherits from this peer group.
+  bool send_extended_message = 14;
 }
 
 message PeerGroupState {
