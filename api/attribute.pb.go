@@ -3671,8 +3671,12 @@ type LsAttributeLink struct {
 	MinUnidirectionalLinkDelay             uint32 `protobuf:"varint,19,opt,name=min_unidirectional_link_delay,json=minUnidirectionalLinkDelay,proto3" json:"min_unidirectional_link_delay,omitempty"`
 	MaxUnidirectionalLinkDelay             uint32 `protobuf:"varint,20,opt,name=max_unidirectional_link_delay,json=maxUnidirectionalLinkDelay,proto3" json:"max_unidirectional_link_delay,omitempty"`
 	UnidirectionalDelayVariation           uint32 `protobuf:"varint,21,opt,name=unidirectional_delay_variation,json=unidirectionalDelayVariation,proto3" json:"unidirectional_delay_variation,omitempty"`
-	unknownFields                          protoimpl.UnknownFields
-	sizeCache                              protoimpl.SizeCache
+	// extended_admin_group is the Extended Administrative Group TLV
+	// (TLV 1173, RFC 9104): its 32-bit bitmasks as received, in order.
+	// Empty when the TLV is absent. Field 23 as upstream (osrg/gobgp#3810).
+	ExtendedAdminGroup []uint32 `protobuf:"varint,23,rep,packed,name=extended_admin_group,json=extendedAdminGroup,proto3" json:"extended_admin_group,omitempty"`
+	unknownFields      protoimpl.UnknownFields
+	sizeCache          protoimpl.SizeCache
 }
 
 func (x *LsAttributeLink) Reset() {
@@ -3850,6 +3854,13 @@ func (x *LsAttributeLink) GetUnidirectionalDelayVariation() uint32 {
 		return x.UnidirectionalDelayVariation
 	}
 	return 0
+}
+
+func (x *LsAttributeLink) GetExtendedAdminGroup() []uint32 {
+	if x != nil {
+		return x.ExtendedAdminGroup
+	}
+	return nil
 }
 
 type LsAttributePrefix struct {
@@ -6134,7 +6145,7 @@ const file_api_attribute_proto_rawDesc = "" +
 	"\x14include_all_affinity\x18\b \x03(\rR\x12includeAllAffinity\x12)\n" +
 	"\x10definition_flags\x18\t \x01(\fR\x0fdefinitionFlags\x12!\n" +
 	"\fexclude_srlg\x18\n" +
-	" \x03(\rR\vexcludeSrlg\"\x88\b\n" +
+	" \x03(\rR\vexcludeSrlg\"\xba\b\n" +
 	"\x0fLsAttributeLink\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12&\n" +
 	"\x0flocal_router_id\x18\x02 \x01(\tR\rlocalRouterId\x12+\n" +
@@ -6159,7 +6170,8 @@ const file_api_attribute_proto_rawDesc = "" +
 	"+min_max_unidirectional_link_delay_anomalous\x18\x12 \x01(\bR&minMaxUnidirectionalLinkDelayAnomalous\x12A\n" +
 	"\x1dmin_unidirectional_link_delay\x18\x13 \x01(\rR\x1aminUnidirectionalLinkDelay\x12A\n" +
 	"\x1dmax_unidirectional_link_delay\x18\x14 \x01(\rR\x1amaxUnidirectionalLinkDelay\x12D\n" +
-	"\x1eunidirectional_delay_variation\x18\x15 \x01(\rR\x1cunidirectionalDelayVariation\"\xc9\x02\n" +
+	"\x1eunidirectional_delay_variation\x18\x15 \x01(\rR\x1cunidirectionalDelayVariation\x120\n" +
+	"\x14extended_admin_group\x18\x17 \x03(\rR\x12extendedAdminGroup\"\xc9\x02\n" +
 	"\x11LsAttributePrefix\x12,\n" +
 	"\tigp_flags\x18\x01 \x01(\v2\x0f.api.LsIGPFlagsR\bigpFlags\x12\x16\n" +
 	"\x06opaque\x18\x02 \x01(\fR\x06opaque\x12\"\n" +

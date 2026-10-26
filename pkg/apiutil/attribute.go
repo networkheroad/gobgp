@@ -1237,6 +1237,7 @@ func UnmarshalLsAttribute(a *api.LsAttribute) (*bgp.LsAttribute, error) {
 			Srlgs:                         linkSrlgs,
 			SrAdjacencySID:                linkSrAdjacencySid,
 			Srv6EndXSID:                   srv6EndXSID,
+			ExtendedAdminGroup:            append([]uint32(nil), a.Link.ExtendedAdminGroup...),
 		}
 	}
 
@@ -2813,6 +2814,7 @@ func NewLsAttributeFromNative(a *bgp.PathAttributeLs) (*api.LsAttribute, error) 
 			ReservableBandwidth: float32OrDefault(attr.Link.ReservableBandwidth),
 			SrAdjacencySid:      uint32OrDefault(attr.Link.SrAdjacencySID),
 			Srv6EndXSid:         srv6EndXSID,
+			ExtendedAdminGroup:  append([]uint32(nil), attr.Link.ExtendedAdminGroup...),
 		},
 		Prefix: &api.LsAttributePrefix{
 			Opaque: bytesOrDefault(attr.Prefix.Opaque),

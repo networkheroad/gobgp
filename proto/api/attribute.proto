@@ -468,6 +468,11 @@ message LsAttributeLink {
   uint32 min_unidirectional_link_delay = 19;
   uint32 max_unidirectional_link_delay = 20;
   uint32 unidirectional_delay_variation = 21;
+
+  // extended_admin_group is the Extended Administrative Group TLV
+  // (TLV 1173, RFC 9104): its 32-bit bitmasks as received, in order.
+  // Empty when the TLV is absent. Field 23 as upstream (osrg/gobgp#3810).
+  repeated uint32 extended_admin_group = 23;
 }
 
 message LsAttributePrefix {
