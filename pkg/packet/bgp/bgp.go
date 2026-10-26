@@ -5949,7 +5949,7 @@ const (
 	LS_TLV_IGP_FLAGS              = 1152
 	LS_TLV_IGP_ROUTE_TAG          = 1153 // TODO
 	LS_TLV_EXTENDED_ROUTE_TAG     = 1154 // TODO
-	LS_TLV_PREFIX_METRIC          = 1155 // TODO
+	LS_TLV_PREFIX_METRIC          = 1155
 	LS_TLV_OSPF_FORWARDING_ADDR   = 1156 // TODO
 	LS_TLV_OPAQUE_PREFIX_ATTR     = 1157
 	LS_TLV_PREFIX_SID             = 1158 // draft-ietf-idr-bgp-ls-segment-routing-ext
@@ -6061,6 +6061,9 @@ func NewLsAttributeTLVs(lsAttr *LsAttribute) []LsTLVInterface {
 
 	if lsAttr.Prefix.IGPFlags != nil {
 		tlvs = append(tlvs, NewLsTLVIGPFlags(lsAttr.Prefix.IGPFlags))
+	}
+	if lsAttr.Prefix.PrefixMetric != nil {
+		tlvs = append(tlvs, NewLsTLVPrefixMetric(lsAttr.Prefix.PrefixMetric))
 	}
 	if lsAttr.Prefix.Opaque != nil {
 		tlvs = append(tlvs, NewLsTLVOpaquePrefixAttr(lsAttr.Prefix.Opaque))
@@ -7692,6 +7695,71 @@ func (l *LsTLVTEDefaultMetric) MarshalJSON() ([]byte, error) {
 }
 
 func (l *LsTLVTEDefaultMetric) GetLsTLV() LsTLV {
+	return l.LsTLV
+}
+
+// LsTLVPrefixMetric is the Prefix Metric TLV (RFC 7752 Section
+// 3.3.3.4): the metric of the prefix as the IGP advertises it. Length
+// is 4; the value is a 32-bit unsigned metric. For IS-IS only the low
+// 24 bits are meaningful (wide metrics), for OSPF the low 24 or 16 bits
+// depending on the LSA type; the value is carried as received.
+type LsTLVPrefixMetric struct {
+	LsTLV
+	Metric uint32
+}
+
+func NewLsTLVPrefixMetric(l *uint32) *LsTLVPrefixMetric {
+	return &LsTLVPrefixMetric{
+		LsTLV: LsTLV{
+			Type:   LS_TLV_PREFIX_METRIC,
+			Length: 4,
+		},
+		Metric: *l,
+	}
+}
+
+func (l *LsTLVPrefixMetric) DecodeFromBytes(data []byte) error {
+	value, err := l.LsTLV.DecodeFromBytes(data)
+	if err != nil {
+		return err
+	}
+
+	if l.Type != LS_TLV_PREFIX_METRIC {
+		return malformedAttrListErr("Unexpected TLV type")
+	}
+
+	// https://tools.ietf.org/html/rfc7752#section-3.3.3.4
+	if len(value) != 4 {
+		return malformedAttrListErr("Incorrect prefix metric length")
+	}
+
+	l.Metric = binary.BigEndian.Uint32(value)
+
+	return nil
+}
+
+func (l *LsTLVPrefixMetric) Serialize() ([]byte, error) {
+	var buf [4]byte
+	binary.BigEndian.PutUint32(buf[:4], l.Metric)
+
+	return l.LsTLV.Serialize(buf[:])
+}
+
+func (l *LsTLVPrefixMetric) String() string {
+	return fmt.Sprintf("{Prefix metric: %d}", l.Metric)
+}
+
+func (l *LsTLVPrefixMetric) MarshalJSON() ([]byte, error) {
+	return json.Marshal(struct {
+		Type         LsTLVType `json:"type"`
+		PrefixMetric uint32    `json:"prefix_metric"`
+	}{
+		Type:         l.Type,
+		PrefixMetric: l.Metric,
+	})
+}
+
+func (l *LsTLVPrefixMetric) GetLsTLV() LsTLV {
 	return l.LsTLV
 }
 
@@ -10715,6 +10783,8 @@ type LsAttributeLink struct {
 type LsAttributePrefix struct {
 	IGPFlags *LsIGPFlags `json:"igp_flags,omitempty"`
 	Opaque   *[]byte     `json:"opaque,omitempty"`
+	// PrefixMetric is the Prefix Metric TLV (RFC 7752 Section 3.3.3.4).
+	PrefixMetric *uint32 `json:"prefix_metric,omitempty"`
 
 	// SrPrefixSID holds the SR-MPLS Prefix-SID of the prefix when the
 	// originator advertised it with Algorithm = 0 (default SPF). RFC
@@ -10858,6 +10928,9 @@ func (p *PathAttributeLs) Extract() *LsAttribute {
 
 		case *LsTLVIGPFlags:
 			l.Prefix.IGPFlags = v.Extract()
+
+		case *LsTLVPrefixMetric:
+			l.Prefix.PrefixMetric = &v.Metric
 
 		case *LsTLVOpaquePrefixAttr:
 			l.Prefix.Opaque = &v.Attr
@@ -11030,6 +11103,9 @@ func (p *PathAttributeLs) DecodeFromBytes(data []byte, options ...*MarshallingOp
 		// Prefix NLRI-related TLVs (https://tools.ietf.org/html/rfc7752#section-3.3.3)
 		case LS_TLV_IGP_FLAGS:
 			tlv = &LsTLVIGPFlags{}
+
+		case LS_TLV_PREFIX_METRIC:
+			tlv = &LsTLVPrefixMetric{}
 
 		case LS_TLV_OPAQUE_PREFIX_ATTR:
 			tlv = &LsTLVOpaquePrefixAttr{}
